@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, catchError, forkJoin, from, map, Observable, of, switchMap, tap } from 'rxjs';
 import { DashboardWeather, WeatherState } from '../models/weather.models';
@@ -41,11 +42,13 @@ export class WeatherStateService {
 
         return this.loadByCoordinates(cityData.lat, cityData.lon, activeCity);
       }),
+      catchError((error: unknown) => this.handleFetchError(error)),
     );
   }
 
   loadByCoordinates(lat: number, lon: number, activeCity = ''): Observable<WeatherState> {
-    this.patchState({ status: 'loading', errorMessage: null, activeCity: activeCity || this.stateSubject.value.activeCity });
+    const cityLabel = activeCity || this.stateSubject.value.activeCity;
+    this.patchState({ status: 'loading', errorMessage: null, activeCity: cityLabel });
     this.activeCoordinates = { lat, lon };
 
     return this.loadWeatherBundle(lat, lon).pipe(
@@ -55,18 +58,11 @@ export class WeatherStateService {
           status: 'success',
           data,
           errorMessage: null,
-          activeCity: `${data.current.city}, ${data.current.country}`,
+          activeCity: cityLabel || `${data.current.city}, ${data.current.country}`,
         });
       }),
       map(() => this.stateSubject.value),
-      catchError((error: Error) => {
-        this.patchState({
-          status: 'error',
-          errorMessage: error.message || 'Unable to fetch weather right now.',
-        });
-
-        return of(this.stateSubject.value);
-      }),
+      catchError((error: unknown) => this.handleFetchError(error)),
     );
   }
 
@@ -121,6 +117,40 @@ export class WeatherStateService {
       sevenDayForecast: forecast,
       fourDayAverageCelsius,
     };
+  }
+
+  private handleFetchError(error: unknown): Observable<WeatherState> {
+    this.patchState({
+      status: 'error',
+      errorMessage: this.toErrorMessage(error),
+    });
+
+    return of(this.stateSubject.value);
+  }
+
+  private toErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 401) {
+        return 'OpenWeather API key is invalid. Update environment.openWeatherApiKey.';
+      }
+
+      if (error.status === 0) {
+        return 'Unable to reach OpenWeather. Check your internet connection and try again.';
+      }
+
+      const apiMessage =
+        typeof error.error === 'object' && error.error !== null && 'message' in error.error
+          ? String((error.error as { message?: string }).message)
+          : '';
+
+      return apiMessage || error.message || 'Unable to fetch weather right now.';
+    }
+
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    return 'Unable to fetch weather right now.';
   }
 
   private patchState(patch: Partial<WeatherState>): void {
