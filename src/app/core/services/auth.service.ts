@@ -6,11 +6,18 @@ const AUTH_STORAGE_KEY = 'weather-dashboard-auth';
   providedIn: 'root',
 })
 export class AuthService {
+  private readonly validUsername = 'demo';
+  private readonly validPassword = 'demo123';
+
   login(username: string, password: string): boolean {
     const normalizedUsername = username.trim();
     const normalizedPassword = password.trim();
 
     if (!normalizedUsername || !normalizedPassword) {
+      return false;
+    }
+
+    if (normalizedUsername !== this.validUsername || normalizedPassword !== this.validPassword) {
       return false;
     }
 
