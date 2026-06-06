@@ -37,12 +37,11 @@ interface CurrentWeatherResponse {
 interface ForecastResponse {
   list: Array<{
     dt: number;
-    temp: {
-      day?: number;
-      min: number;
-      max: number;
-      feels_like?: number;
-      temp?: number;
+    main: {
+      temp: number;
+      temp_min: number;
+      temp_max: number;
+      feels_like: number;
     };
     weather: Array<{
       description: string;
@@ -142,14 +141,14 @@ export class WeatherApiService {
       const localTimestamp = entry.dt + timezoneOffset;
       const dayKey = new Date(localTimestamp * 1000).toISOString().slice(0, 10);
       const current = groupedByDay.get(dayKey);
-      const temperature = entry.temp.day ?? entry.temp.temp ?? (entry.temp.min + entry.temp.max) / 2;
+      const temperature = entry.main.temp;
       const weather = entry.weather[0];
 
       if (!current) {
         groupedByDay.set(dayKey, {
           date: entry.dt,
-          minCelsius: entry.temp.min,
-          maxCelsius: entry.temp.max,
+          minCelsius: entry.main.temp_min,
+          maxCelsius: entry.main.temp_max,
           totalTemp: temperature,
           count: 1,
           summary: weather?.description ?? 'Clear',
@@ -159,8 +158,8 @@ export class WeatherApiService {
       }
 
       current.date = Math.min(current.date, entry.dt);
-      current.minCelsius = Math.min(current.minCelsius, entry.temp.min);
-      current.maxCelsius = Math.max(current.maxCelsius, entry.temp.max);
+      current.minCelsius = Math.min(current.minCelsius, entry.main.temp_min);
+      current.maxCelsius = Math.max(current.maxCelsius, entry.main.temp_max);
       current.totalTemp += temperature;
       current.count += 1;
 
